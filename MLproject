@@ -1,0 +1,94 @@
+name: My Project
+
+entry_points:
+  parse_kage:
+    parameters:
+      config:
+        description: "Path to config file"
+        type: string
+        default: "conf/config.yaml"
+      kage_dump_dir:
+        description: "Path to KAGE dump directory"
+        type: string
+        default: "data/kage_dump"
+      kage_pkl:
+        description: "Path to output pickle file"
+        type: string
+        default: "data/kage.pkl"
+    command: "python prepare_parse_kage_tsv.py --config {config} --kage_dump_dir {kage_dump_dir} --kage_pkl {kage_pkl}"
+
+  check_data:
+    parameters:
+      config:
+        description: "Path to config file"
+        type: string
+        default: "conf/config.yaml"
+      output_strokes:
+        description: "Output stroke visualization"
+        type: bool
+        default: false
+    command: "python check_data.py --config {config} --output_strokes {output_strokes}"
+
+  train:
+    parameters:
+      config:
+        description: "Path to configuration file"
+        type: string
+        default: "conf/config.yaml"
+      max_epochs:
+        description: "Maximum number of training epochs"
+        type: int
+        default: 100
+      batch_size:
+        description: "Training batch size"
+        type: int
+        default: 32
+      learning_rate:
+        description: "Learning rate"
+        type: float
+        default: 1.0e-4
+      dim_emb:
+        description: "Shared embedding dimension"
+        type: int
+        default: 256
+      tf_dim_model:
+        description: "Stroke transformer model dimension"
+        type: int
+        default: 256
+      tf_dim_ff:
+        description: "Stroke transformer feedforward dimension"
+        type: int
+        default: 256
+    command: "python train.py --config {config} --max-epochs {max_epochs} --batch-size {batch_size} --learning-rate {learning_rate} --dim-emb {dim_emb} --tf-dim-model {tf_dim_model} --tf-dim-ff {tf_dim_ff}"
+
+  visualize_knn:
+    parameters:
+      config:
+        description: "Path to configuration file"
+        type: string
+        default: "conf/config.yaml"
+      checkpoint:
+        description: "Path to model checkpoint"
+        type: string
+        default: "checkpoints/checkpoint.ckpt"
+      output_dir:
+        description: "Directory to save visualization images"
+        type: string
+        default: "outputs/knn"
+      top_k:
+        description: "Number of nearest neighbors to visualize"
+        type: int
+        default: 20
+      num:
+        description: "Number of random query samples"
+        type: int
+        default: 20
+      batch_size:
+        description: "Batch size for embedding extraction"
+        type: int
+        default: 64
+      seed:
+        description: "Random seed for query sampling"
+        type: int
+        default: 42
+    command: "python visualize_knn.py --config {config} --checkpoint {checkpoint} --output-dir {output_dir} --top-k {top_k} --num {num} --batch-size {batch_size} --seed {seed}"
