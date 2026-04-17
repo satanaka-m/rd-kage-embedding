@@ -1,8 +1,11 @@
+--index-url https://download.pytorch.org/whl/cu128
+--extra-index-url https://pypi.org/simple
+
 mlflow>=2.0
 pyyaml
 cairosvg
-torch
-torchvision
+torch==2.8.0
+torchvision==0.23.0
 pytorch-lightning
 opencv-python
 numpy
@@ -10,3 +13,5 @@ scipy
 scikit-learn
 pillow
 torchinfo
+fonttools
+freetype-py

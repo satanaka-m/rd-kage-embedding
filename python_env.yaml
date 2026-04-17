@@ -1,16 +1,7 @@
 python: "3.10"
+build_dependencies:
+  - pip
+  - setuptools
+  - wheel
 dependencies:
-  - mlflow>=2.0
-  - pyyaml
-  - cairosvg
-  - torch
-  - torchvision
-  - pytorch-lightning
-  - opencv-python
-  - numpy
-  - scipy
-  - scikit-learn
-  - pillow
-  - torchinfo
-  - fonttools
-  - freetype-py
+  - -r requirements.txt
