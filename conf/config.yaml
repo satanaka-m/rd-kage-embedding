@@ -1,0 +1,60 @@
+# VICReg Training Configuration
+
+# Training parameters
+training:
+  max_epochs: 100
+  batch_size: 64
+  val_ratio: 0.1
+  seed: 42
+
+# Model parameters
+model:
+  dim_emb: 128
+  vit_layers: 2
+  tf_dim_model: 128
+  tf_layers: 2
+  tf_heads: 8
+  tf_dropout: 0.1
+  tf_dim_ff: 256
+
+# Loss function parameters
+loss:
+  sim_weight: 25.0
+  var_weight: 25.0
+  cov_weight: 1.0
+  eps: 1e-3
+  variance_target: 1.0
+
+# Optimizer parameters
+optimizer:
+  type: adamw
+  lr: 0.0001
+  weight_decay: 1.0e-5
+  scheduler:
+    type: cosine
+    # step_size and gamma for StepLR
+    # step_size: 10
+    # gamma: 0.1
+
+# Dataset parameters
+dataset:
+  width: 224
+  height: 224
+  scale: 0.89285714285  # 200 / 224
+  font_dir: ./data
+  font_filename: AP-OTF-ReimPr6N-Regular.otf
+  cids: PR6N_KANJI
+  kage_pkl: ./data/kage.pkl
+  augmentation:
+    scale:
+      min: 0.95
+      max: 1.05
+    displacement: 4.0
+
+# Trainer parameters
+trainer:
+  log_every_n_steps: 50
+  enable_progress_bar: true
+  enable_model_summary: true
+  gradient_clip_val: 1.0
+  precision: 32-true

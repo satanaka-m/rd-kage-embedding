@@ -1,0 +1,12 @@
+mlflow>=2.0
+pyyaml
+cairosvg
+torch
+torchvision
+pytorch-lightning
+opencv-python
+numpy
+scipy
+scikit-learn
+pillow
+torchinfo
