@@ -288,40 +288,12 @@ def main():
     parser = argparse.ArgumentParser(description='Train SigReg model with PyTorch Lightning')
     parser.add_argument('--config', type=str, default='conf/config.yaml',
                         help='Path to configuration file')
-    
-    # Optional parameters to override config file
-    parser.add_argument('--max-epochs', type=int, default=None,
-                        help='Override max_epochs from config')
-    parser.add_argument('--batch-size', type=int, default=None,
-                        help='Override batch_size from config')
-    parser.add_argument('--learning-rate', type=float, default=None,
-                        help='Override learning_rate from config')
-    parser.add_argument('--dim-emb', type=int, default=None,
-                        help='Override dim_emb from config')
-    parser.add_argument('--tf-dim-model', type=int, default=None,
-                        help='Override tf_dim_model from config')
-    parser.add_argument('--tf-dim-ff', type=int, default=None,
-                        help='Override tf_dim_ff from config')
-    
+
     args = parser.parse_args()
-    
+
     # Load configuration
     config = load_config(args.config)
-    
-    # Override config with command line arguments
-    if args.max_epochs is not None:
-        config['training']['max_epochs'] = args.max_epochs
-    if args.batch_size is not None:
-        config['training']['batch_size'] = args.batch_size
-    if args.learning_rate is not None:
-        config['optimizer']['lr'] = args.learning_rate
-    if args.dim_emb is not None:
-        config['model']['dim_emb'] = args.dim_emb
-    if args.tf_dim_model is not None:
-        config['model']['tf_dim_model'] = args.tf_dim_model
-    if args.tf_dim_ff is not None:
-        config['model']['tf_dim_ff'] = args.tf_dim_ff
-    
+
     if mlflow.active_run() is not None:
         raise RuntimeError(
             "Unexpected active MLflow run detected before startup. "

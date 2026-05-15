@@ -47,7 +47,6 @@ def main(config, output_strokes=False):
         dataset_config,
         val_dataset_config=val_dataset_config,
         batch_size=batch_size,
-        num_workers=0,
     )
     # dl = dm.train_dataloader()
     dl = dm.val_dataloader()

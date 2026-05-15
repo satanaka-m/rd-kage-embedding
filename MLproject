@@ -11,11 +11,7 @@ entry_points:
         description: "Path to KAGE dump directory"
         type: string
         default: "data/kage_dump"
-      kage_pkl:
-        description: "Path to output pickle file"
-        type: string
-        default: "data/kage.pkl"
-    command: "python prepare_parse_kage_tsv.py --config {config} --kage_dump_dir {kage_dump_dir} --kage_pkl {kage_pkl}"
+    command: "python prepare_parse_kage_tsv.py --config {config} --kage_dump_dir {kage_dump_dir}"
 
   check_data:
     parameters:
@@ -35,31 +31,7 @@ entry_points:
         description: "Path to configuration file"
         type: string
         default: "conf/config.yaml"
-      max_epochs:
-        description: "Maximum number of training epochs"
-        type: int
-        default: 100
-      batch_size:
-        description: "Training batch size"
-        type: int
-        default: 32
-      learning_rate:
-        description: "Learning rate"
-        type: float
-        default: 1.0e-4
-      dim_emb:
-        description: "Shared embedding dimension"
-        type: int
-        default: 256
-      tf_dim_model:
-        description: "Stroke transformer model dimension"
-        type: int
-        default: 256
-      tf_dim_ff:
-        description: "Stroke transformer feedforward dimension"
-        type: int
-        default: 256
-    command: "python train.py --config {config} --max-epochs {max_epochs} --batch-size {batch_size} --learning-rate {learning_rate} --dim-emb {dim_emb} --tf-dim-model {tf_dim_model} --tf-dim-ff {tf_dim_ff}"
+    command: "python train.py --config {config}"
 
   visualize_knn:
     parameters:
@@ -70,7 +42,6 @@ entry_points:
       checkpoint:
         description: "Path to model checkpoint"
         type: string
-        default: "checkpoints/checkpoint.ckpt"
       output_dir:
         description: "Directory to save visualization images"
         type: string

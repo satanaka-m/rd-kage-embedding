@@ -92,13 +92,15 @@ KAGEのダンプファイルをパースしてpickleファイルに変換：
 mlflow run . -e parse_kage \
   --experiment-name "sigreg-data-prep" \
   --run-name "parse-kage-20260403"
+```
 
-# カスタムパスを指定
+KAGE ダンプの場所を明示する場合:
+
+```bash
 mlflow run . -e parse_kage \
   --experiment-name "sigreg-data-prep" \
   --run-name "parse-kage-custom-20260403" \
-  -P kage_dump_dir=./data/kage_dump \
-  -P kage_pkl=./data/kage.pkl
+  -P kage_dump_dir=./data/kage_dump
 ```
 
 ## 2. データの確認
@@ -110,19 +112,22 @@ mlflow run . -e parse_kage \
 mlflow run . -e check_data \
   --experiment-name "sigreg-data-check" \
   --run-name "check-data-20260403"
+```
 
-# カスタム設定ファイルを使用
+ストローク SVG も出す場合:
+
+```bash
 mlflow run . -e check_data \
   --experiment-name "sigreg-data-check" \
-  --run-name "check-data-custom-config-20260403" \
-  -P config=conf/config.yaml
+  --run-name "check-data-with-strokes-20260403" \
+  -P output_strokes=true
 ```
 
 ## 3. モデルの訓練
 
 SigRegモデルの訓練：
 
-デフォルト設定は `Weak-SIGReg`。`Strong-SIGReg` を使う場合は、事前に [conf/config.yaml](/Users/satanaka/work/rd-kage-embedding/conf/config.yaml:22) の `loss.variant` を `strong` に変える。
+現状のデフォルト設定は `Strong-SIGReg`。`Weak-SIGReg` を使う場合は、事前に [conf/config.yaml](conf/config.yaml) の `loss.variant` を `weak` に変える。
 
 主な損失パラメータ:
 
@@ -158,7 +163,13 @@ mlflow run . -e train \
 rm -rf ~/.mlflow/envs
 ```
 
-切り分け用に CPU で起動する場合:
+実装上、学習時のデバイスは自動選択される。CUDA が使える環境では GPU、使えない環境では CPU になる。
+
+```python
+accelerator='gpu' if torch.cuda.is_available() else 'cpu'
+```
+
+そのため、次のコマンドは「CPU を強制する」ものではなく、CUDA が見えない環境であれば CPU 実行になる通常の学習コマンドである。
 
 ```bash
 mlflow run . -e train \
@@ -174,32 +185,21 @@ mlflow run . -e train \
   --run-name "run-20260403"
 ```
 
-訓練パラメータをカスタマイズ:
+学習設定は [conf/config.yaml](conf/config.yaml) を編集して調整する。MLproject 経由では学習パラメータを上書きしない。
 
 ```bash
 mlflow run . -e train \
   --experiment-name "sigreg-training" \
-  --run-name "train-custom-20260403" \
-  -P max_epochs=200 \
-  -P batch_size=64 \
-  -P learning_rate=5.0e-5 \
-  -P dim_emb=512 \
-  -P tf_dim_model=256 \
-  -P tf_dim_ff=512
+  --run-name "train-from-config-20260403" \
+  -P config=conf/config.yaml
 ```
 
-複数のパラメータを組み合わせた例:
+設定ファイル変更後に MLflow から実行する例:
 
 ```bash
 mlflow run . -e train \
-  --experiment-name "sigreg-tuning" \
-  --run-name "tuning-lr-search" \
-  -P max_epochs=100 \
-  -P batch_size=32 \
-  -P learning_rate=1.0e-4 \
-  -P dim_emb=256 \
-  -P tf_dim_model=256 \
-  -P tf_dim_ff=256
+  --experiment-name "sigreg-training" \
+  --run-name "train-from-config-20260403"
 ```
 
 ## 4. 学習済みモデルの k近傍可視化
@@ -211,10 +211,12 @@ mlflow run . -e train \
 
 字形側は見た目だけだと解釈しにくいため、各候補にグリフ画像と `CID` を併記して PNG として保存する。
 
+学習後のチェックポイントは `checkpoints/...` には自動保存されず、`models/<MLflow run_id>/model.ckpt` に保存される。
+
 ```bash
 python visualize_knn.py \
   --config conf/config.yaml \
-  --checkpoint checkpoints/epoch=2-step=1239.ckpt \
+  --checkpoint models/<MLflow run_id>/model.ckpt \
   --output-dir outputs/knn \
   --top-k 20 \
   --num 20 \
@@ -226,7 +228,7 @@ python visualize_knn.py \
 
 ```bash
 mlflow run . -e visualize_knn \
-  -P checkpoint=checkpoints/epoch=2-step=1239.ckpt \
+  -P checkpoint=models/<MLflow run_id>/model.ckpt \
   -P output_dir=outputs/knn \
   -P top_k=20 \
   -P num=20 \
