@@ -12,7 +12,7 @@ import numpy as np
 from sklearn.metrics import roc_auc_score, average_precision_score
 
 from model import DualEncoder, ImageEncoder, StrokeSetEncoder
-from sigreg import SigRegLoss
+from sigreg import build_sigreg_loss
 from data import StrokeImageDataset, custom_collate_fn
 
 
@@ -42,13 +42,8 @@ class SigRegLightningModule(pl.LightningModule):
             dim_emb, tf_dim_model, tf_layers, tf_heads, tf_dropout, tf_dim_ff
         )
         
-        # Alignment + Weak-SIGReg regularization
-        self.sigreg_loss = SigRegLoss(
-            sim_weight=float(config['loss'].get('sim_weight', 25.0)),
-            reg_weight=float(config['loss'].get('reg_weight', 25.0)),
-            sketch_dim=int(config['loss'].get('sketch_dim', 64)),
-            eps=float(config['loss'].get('eps', 1e-6)),
-        )
+        # Alignment + configurable SIGReg regularization
+        self.sigreg_loss = build_sigreg_loss(config['loss'])
         self._val_image_embs = []
         self._val_stroke_embs = []
 

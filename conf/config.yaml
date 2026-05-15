@@ -19,10 +19,14 @@ model:
 
 # Loss function parameters
 loss:
-  sim_weight: 25.0
-  reg_weight: 25.0
+  variant: strong
+  sim_weight: 1.0
+  reg_weight: 0.1
   sketch_dim: 64
   eps: 1e-6
+  num_slices: 1024
+  epps_pulley_t_max: 3.0
+  epps_pulley_num_points: 17
 
 # Optimizer parameters
 optimizer:
