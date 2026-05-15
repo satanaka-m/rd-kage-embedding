@@ -12,12 +12,12 @@ import numpy as np
 from sklearn.metrics import roc_auc_score, average_precision_score
 
 from model import DualEncoder, ImageEncoder, StrokeSetEncoder
-from vicreg import VicRegLoss
+from sigreg import SigRegLoss
 from data import StrokeImageDataset, custom_collate_fn
 
 
-class VicRegLightningModule(pl.LightningModule):
-    """PyTorch Lightning module for VICReg-based dual encoder training."""
+class SigRegLightningModule(pl.LightningModule):
+    """PyTorch Lightning module for dual encoder training with SigReg."""
     
     def __init__(self, config: Dict[str, Any]):
         super().__init__()
@@ -42,13 +42,12 @@ class VicRegLightningModule(pl.LightningModule):
             dim_emb, tf_dim_model, tf_layers, tf_heads, tf_dropout, tf_dim_ff
         )
         
-        # VICReg loss
-        self.vicreg_loss = VicRegLoss(
+        # Alignment + Weak-SIGReg regularization
+        self.sigreg_loss = SigRegLoss(
             sim_weight=float(config['loss'].get('sim_weight', 25.0)),
-            var_weight=float(config['loss'].get('var_weight', 25.0)),
-            cov_weight=float(config['loss'].get('cov_weight', 1.0)),
-            eps=float(config['loss'].get('eps', 1e-4)),
-            variance_target=float(config['loss'].get('variance_target', 1.0)),
+            reg_weight=float(config['loss'].get('reg_weight', 25.0)),
+            sketch_dim=int(config['loss'].get('sketch_dim', 64)),
+            eps=float(config['loss'].get('eps', 1e-6)),
         )
         self._val_image_embs = []
         self._val_stroke_embs = []
@@ -78,20 +77,18 @@ class VicRegLightningModule(pl.LightningModule):
         # Forward pass
         image_emb, stroke_emb = self(images, stroke_labels, stroke_controls)
         
-        # VICReg loss
-        loss, stats = self.vicreg_loss(image_emb, stroke_emb)
+        # SigReg loss
+        loss, stats = self.sigreg_loss(image_emb, stroke_emb)
         
         # Log metrics
         self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True)
         self.log('train_sim_loss', stats['sim_loss'], on_step=True, on_epoch=True)
-        self.log('train_var_loss', stats['var_loss'], on_step=True, on_epoch=True)
-        self.log('train_cov_loss', stats['cov_loss'], on_step=True, on_epoch=True)
+        self.log('train_reg_loss', stats['reg_loss'], on_step=True, on_epoch=True)
         self.log('train_std_x_mean', stats['std_x_mean'], on_step=False, on_epoch=True)
         self.log('train_std_y_mean', stats['std_y_mean'], on_step=False, on_epoch=True)
         self._log_mlflow_metric('train_loss_step', loss, self.global_step)
         self._log_mlflow_metric('train_sim_loss_step', stats['sim_loss'], self.global_step)
-        self._log_mlflow_metric('train_var_loss_step', stats['var_loss'], self.global_step)
-        self._log_mlflow_metric('train_cov_loss_step', stats['cov_loss'], self.global_step)
+        self._log_mlflow_metric('train_reg_loss_step', stats['reg_loss'], self.global_step)
         
         return loss
     
@@ -101,20 +98,18 @@ class VicRegLightningModule(pl.LightningModule):
         # Forward pass
         image_emb, stroke_emb = self(images, stroke_labels, stroke_controls)
         
-        # VICReg loss
-        loss, stats = self.vicreg_loss(image_emb, stroke_emb)
+        # SigReg loss
+        loss, stats = self.sigreg_loss(image_emb, stroke_emb)
         
         # Log metrics
         self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
         self.log('val_sim_loss', stats['sim_loss'], on_step=False, on_epoch=True)
-        self.log('val_var_loss', stats['var_loss'], on_step=False, on_epoch=True)
-        self.log('val_cov_loss', stats['cov_loss'], on_step=False, on_epoch=True)
+        self.log('val_reg_loss', stats['reg_loss'], on_step=False, on_epoch=True)
         self._val_image_embs.append(image_emb.detach().cpu())
         self._val_stroke_embs.append(stroke_emb.detach().cpu())
         self._log_mlflow_metric('val_loss_step', loss, self.global_step)
         self._log_mlflow_metric('val_sim_loss_step', stats['sim_loss'], self.global_step)
-        self._log_mlflow_metric('val_var_loss_step', stats['var_loss'], self.global_step)
-        self._log_mlflow_metric('val_cov_loss_step', stats['cov_loss'], self.global_step)
+        self._log_mlflow_metric('val_reg_loss_step', stats['reg_loss'], self.global_step)
         
         return loss
 
@@ -124,7 +119,7 @@ class VicRegLightningModule(pl.LightningModule):
 
     def on_train_epoch_end(self):
         metrics = self.trainer.callback_metrics
-        for key in ('train_loss', 'train_sim_loss', 'train_var_loss', 'train_cov_loss', 'train_std_x_mean', 'train_std_y_mean'):
+        for key in ('train_loss', 'train_sim_loss', 'train_reg_loss', 'train_std_x_mean', 'train_std_y_mean'):
             if key in metrics:
                 self._log_mlflow_metric(key, metrics[key], self.current_epoch)
 
@@ -171,7 +166,7 @@ class VicRegLightningModule(pl.LightningModule):
         self._log_mlflow_metric('val_pair_pr_auc', pr_auc, self.current_epoch)
 
         metrics = self.trainer.callback_metrics
-        for key in ('val_loss', 'val_sim_loss', 'val_var_loss', 'val_cov_loss'):
+        for key in ('val_loss', 'val_sim_loss', 'val_reg_loss'):
             if key in metrics:
                 self._log_mlflow_metric(key, metrics[key], self.current_epoch)
     
@@ -225,8 +220,8 @@ class VicRegLightningModule(pl.LightningModule):
         return optimizer
 
 
-class VicRegDataModule(pl.LightningDataModule):
-    """PyTorch Lightning data module for VICReg training."""
+class SigRegDataModule(pl.LightningDataModule):
+    """PyTorch Lightning data module for SigReg training."""
     
     def __init__(self, config: Dict[str, Any]):
         super().__init__()
@@ -295,7 +290,7 @@ def load_config(config_path: str) -> Dict[str, Any]:
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Train VICReg model with PyTorch Lightning')
+    parser = argparse.ArgumentParser(description='Train SigReg model with PyTorch Lightning')
     parser.add_argument('--config', type=str, default='conf/config.yaml',
                         help='Path to configuration file')
     
@@ -349,8 +344,8 @@ def main():
         mlflow.log_params(flatten_dict(config))
         
         # Initialize module and datamodule
-        model = VicRegLightningModule(config)
-        datamodule = VicRegDataModule(config)
+        model = SigRegLightningModule(config)
+        datamodule = SigRegDataModule(config)
         
         # Setup trainer
         trainer_config = config.get('trainer', {})

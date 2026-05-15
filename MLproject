@@ -1,4 +1,4 @@
-name: My Project
+name: rd-kage-sigreg
 
 entry_points:
   parse_kage:

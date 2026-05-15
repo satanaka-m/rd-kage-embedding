@@ -1,4 +1,4 @@
-# VICReg Training Configuration
+# SigReg Training Configuration
 
 # Training parameters
 training:
@@ -20,10 +20,9 @@ model:
 # Loss function parameters
 loss:
   sim_weight: 25.0
-  var_weight: 25.0
-  cov_weight: 1.0
-  eps: 1e-3
-  variance_target: 1.0
+  reg_weight: 25.0
+  sketch_dim: 64
+  eps: 1e-6
 
 # Optimizer parameters
 optimizer:
