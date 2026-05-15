@@ -4,6 +4,27 @@ import torch.nn.functional as F
 from torchvision import transforms
 
 
+class AttentionPooling(nn.Module):
+    def __init__(self, dim_in):
+        super().__init__()
+        self.norm = nn.LayerNorm(dim_in)
+        self.score = nn.Linear(dim_in, 1)
+
+    def forward(self, x, valid_mask=None):
+        # x: (B, N, D), valid_mask: (B, N) with True for valid tokens
+        attn_logits = self.score(self.norm(x)).squeeze(-1)  # (B, N)
+
+        if valid_mask is None:
+            attn_weight = torch.softmax(attn_logits, dim=1)
+        else:
+            attn_logits = attn_logits.masked_fill(~valid_mask, -1e9)
+            attn_weight = torch.softmax(attn_logits, dim=1)
+            attn_weight = attn_weight * valid_mask.to(attn_weight.dtype)
+            attn_weight = attn_weight / attn_weight.sum(dim=1, keepdim=True).clamp_min(1e-8)
+
+        return torch.sum(x * attn_weight.unsqueeze(-1), dim=1)
+
+
 class StrokeEmbeddingSequence(nn.Module):
     # KAGEストロークの特徴量の埋め込みを作成
     def __init__(self, num_stroke_classes, num_startpoint_classes, num_endpoint_classes, dim_model, effective_resolution):
@@ -31,9 +52,9 @@ class StrokeEmbeddingSequence(nn.Module):
 
         # process labels
         # maximum()はパディング判別用のマイナス値を取り除く役割
-        x_stroke_emb = self.stroke_embed(torch.maximum(labels[:, :, 0], torch.tensor(0)))  # (B, Nstrokes) -> (B, Nstrokes, Dembed)
-        x_startpoint_emb = self.startpoint_embed(torch.maximum(labels[:, :, 1], torch.tensor(0)))  # (B, Nstrokes) -> (B, Nstrokes, Dembed)
-        x_endpoint_emb = self.endpoint_embed(torch.maximum(labels[:, :, 2], torch.tensor(0)))  # (B, Nstrokes) -> (B, Nstrokes, Dembed)
+        x_stroke_emb = self.stroke_embed(labels[:, :, 0].clamp_min(0))  # (B, Nstrokes) -> (B, Nstrokes, Dembed)
+        x_startpoint_emb = self.startpoint_embed(labels[:, :, 1].clamp_min(0))  # (B, Nstrokes) -> (B, Nstrokes, Dembed)
+        x_endpoint_emb = self.endpoint_embed(labels[:, :, 2].clamp_min(0))  # (B, Nstrokes) -> (B, Nstrokes, Dembed)
 
         # 制御点の位置エンコード
         # 一般的なpositional encodingと係数が異なるので注意
@@ -65,6 +86,7 @@ class StrokeSetEncoder(nn.Module):
 
         # 集約用のMLP
         self.output_mlp = nn.Linear(tf_dim_model, dim_emb)
+        self.attention_pool = AttentionPooling(dim_emb)
     
     def forward(self, labels, control_points):
         x_stroke_embedding, src_key_padding_mask = self.stroke_embedding(labels, control_points)  # (B, Nstrokes, Dmodel)
@@ -72,11 +94,8 @@ class StrokeSetEncoder(nn.Module):
 
         x_stroke_feature = self.output_mlp(x_stroke_feature)  # (B, Nstrokes, Dmodel)
         
-        # マスク付き平均化（可変長対応）
-        # src_key_padding_mask: (B, Nstrokes) - True=パディング, False=有効なデータ
         valid_mask = ~src_key_padding_mask  # (B, Nstrokes) - True=有効なデータ
-        valid_count = valid_mask.sum(dim=1, keepdim=True)  # (B, 1)
-        x_stroke_feature = (x_stroke_feature * valid_mask.unsqueeze(-1)).sum(dim=1) / (valid_count.float() + 1e-8)  # (B, Dmodel)
+        x_stroke_feature = self.attention_pool(x_stroke_feature, valid_mask=valid_mask)  # (B, Dmodel)
 
         return x_stroke_feature
 
@@ -93,10 +112,10 @@ class ImageEncoder(nn.Module):
         self.vit.requires_grad_(False)
         self.vit.eval()
 
-        # 集約用MLP/GAP
+        # 集約用MLP/Attention Pooling
         vit_dim = self.vit.embed_dim
         self.output_mlp = nn.Linear(vit_dim, dim_emb)
-        self.gap = nn.AdaptiveAvgPool1d(1)
+        self.attention_pool = AttentionPooling(dim_emb)
         
     def forward(self, x):
         x = torch.concatenate([x]*3, dim=1)
@@ -109,8 +128,7 @@ class ImageEncoder(nn.Module):
         # remove REG/CLS tokens
         x = x[:, 1:, :]
         x = self.output_mlp(x)
-        x = x.transpose(1, 2)  # (B, Dmodel, Ntokens)
-        x = self.gap(x).squeeze(-1)  # (B, Dmodel, 1) -> (B, Dmodel)
+        x = self.attention_pool(x)
         return x
 
 class DualEncoder(nn.Module):
